@@ -1,0 +1,23 @@
+# MATLAB
+*.asv
+*.m~
+*.mex*
+slprj/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+*.npz
+
+# Data outputs
+figures/*.png
+figures/*.pdf
+figures/*.svg
+
+# OS
+.DS_Store
+Thumbs.db
