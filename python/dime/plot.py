@@ -1,5 +1,11 @@
 """
 Plotting utilities for DIME simulation results.
+
+Covers:
+  - Gradient waveform and encoding power spectrum visualization
+  - CV vs. radius (cylinders, Figure 7)
+  - MD vs. radius (spheres, Figure 8)
+  - Encoding efficiency scatter (Figure 6)
 """
 
 from pathlib import Path
@@ -9,6 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mlp
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
+
+from .waveform import to_q_spectrum, GAMMA
 
 mlp.rcParams["font.family"] = "Times New Roman"
 mlp.rcParams.update({"font.size": 13})
@@ -277,3 +285,269 @@ def plot_md_vs_radius(
         fig.savefig(save_path, dpi=600, bbox_inches="tight")
 
     return fig, axes
+
+
+# ---------------------------------------------------------------------------
+# Waveform and encoding spectrum visualization
+# ---------------------------------------------------------------------------
+
+def gwf_plot(
+    gwf: np.ndarray,
+    dt: float,
+    colors: list | None = None,
+    linestyles: list | None = None,
+    ax=None,
+) -> tuple:
+    """
+    Plot gradient waveform axes as filled area traces.
+
+    Parameters
+    ----------
+    gwf        : [n x 3] gradient waveform [T/m]
+    dt         : raster time [s]
+    colors     : list of colours per axis (default: grey, dark grey, red)
+    linestyles : list of linestyles per axis (default: all '-')
+    ax         : existing Axes
+
+    Returns
+    -------
+    ax, handles
+    """
+    gwf = np.atleast_2d(np.asarray(gwf, dtype=float))
+    if gwf.ndim == 1:
+        gwf = gwf[:, None]
+
+    n_comp = gwf.shape[1]
+    t_ms   = np.arange(gwf.shape[0]) * dt * 1e3
+
+    _colors = (colors or ["#A6A6A6", "#4d4d4d", "#bf2626"])[:n_comp]
+    _ls     = (linestyles or ["-"] * n_comp)[:n_comp]
+
+    created_ax = ax is None
+    if ax is None:
+        _, ax = plt.subplots()
+
+    handles = []
+    for c in range(n_comp):
+        y = gwf[:, c] * 1e3  # T/m -> mT/m
+        h = ax.fill_between(t_ms, 0, y, alpha=0.35,
+                            facecolor=_colors[c], edgecolor=_colors[c],
+                            linewidth=1.5, linestyle=_ls[c])
+        ax.plot(t_ms, y, color=_colors[c], linewidth=1.5, linestyle=_ls[c])
+        handles.append(h)
+
+    gmax = np.max(np.abs(gwf)) * 1.1e3 + 1e-9
+    ax.set_xlim(t_ms[0], t_ms[-1])
+    ax.set_ylim(-gmax, gmax)
+    ax.set_xlabel("Time [ms]")
+    ax.set_ylabel("g [mT/m]")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    if created_ax:
+        plt.tight_layout()
+        plt.show()
+    return ax, handles
+
+
+def plot_qspectra(
+    gwf: np.ndarray,
+    rf: np.ndarray,
+    dt: float,
+    colors: list | None = None,
+    linestyles: list | None = None,
+    ps_scale: float = 1.0,
+    xlim: tuple | None = None,
+    ax=None,
+    gamma: float = GAMMA,
+) -> tuple:
+    """
+    Plot the encoding power spectrum ||Q(omega)||^2 per gradient axis.
+
+    Each component is normalised by its own integral before plotting, so the
+    y-axis reflects spectral shape rather than absolute magnitude.
+
+    Parameters
+    ----------
+    gwf        : [n x 3] gradient waveform [T/m]
+    rf         : [n] refocusing sign vector
+    dt         : raster time [s]
+    colors     : colours per axis (default: grey, dark grey, red)
+    linestyles : linestyles per axis
+    ps_scale   : uniform scale applied after normalisation (default 1.0)
+    xlim       : (f_min, f_max) for x-axis [Hz]; default (0, f_nyquist/4)
+    ax         : existing Axes
+    gamma      : gyromagnetic ratio [rad/s/T]
+
+    Returns
+    -------
+    ax, f, spectra  (spectra shape: [n_freq x n_comp])
+    """
+    gwf = np.asarray(gwf, dtype=float)
+    if gwf.ndim == 1:
+        gwf = gwf[:, None]
+
+    n_comp = gwf.shape[1]
+    _colors = (colors or ["#A6A6A6", "#4d4d4d", "#bf2626"])[:n_comp]
+    _ls     = (linestyles or ["-"] * n_comp)[:n_comp]
+
+    p, f = to_q_spectrum(gwf, rf, dt, gamma=gamma)
+    spectra = p[:, :n_comp].real.copy()
+
+    # Normalise each component by its integral
+    for c in range(n_comp):
+        A = np.trapz(spectra[:, c], f)
+        if A > 0:
+            spectra[:, c] /= A
+    spectra *= ps_scale
+
+    created_ax = ax is None
+    if ax is None:
+        _, ax = plt.subplots()
+
+    for c in range(n_comp):
+        y = spectra[:, c]
+        ax.fill_between(f, 0, y, alpha=0.35,
+                        facecolor=_colors[c], edgecolor=_colors[c], linewidth=1.5,
+                        linestyle=_ls[c])
+        ax.plot(f, y, color=_colors[c], linewidth=1.5, linestyle=_ls[c])
+
+    x_max = xlim[1] if xlim else f[len(f)//4]
+    x_min = xlim[0] if xlim else 0
+    ax.set_xlim(x_min, x_max)
+    ax.set_xlabel("f [Hz]")
+    ax.set_ylabel("Enc. power [a.u.]")
+    ax.set_yticks([])
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    if created_ax:
+        plt.tight_layout()
+        plt.show()
+    return ax, f, spectra
+
+
+# ---------------------------------------------------------------------------
+# Encoding efficiency (Figure 6)
+# ---------------------------------------------------------------------------
+
+_GAMMA = 267.513e6   # rad/s/T
+_B_TARGET_SI = 2e9   # s/m^2  (= 2 ms/um^2)
+
+
+def _kappa_to_tau_ms(kappa: float, gmax_mTm: float) -> float:
+    """Convert encoding efficiency kappa to encoding time [ms] at b=2 ms/um^2."""
+    gmax = gmax_mTm / 1000.0
+    return 1e3 * (4.0 * _B_TARGET_SI / (_GAMMA**2 * gmax**2 * kappa)) ** (1.0 / 3.0)
+
+
+def plot_efficiency(
+    kappa: dict,
+    labels: list | None = None,
+    save_path: str | Path | None = None,
+    ax=None,
+) -> tuple:
+    """
+    Scatter plot of encoding time tau_STE vs tau_LTE (Figure 6).
+
+    Converts encoding efficiency kappa to the encoding time required to reach
+    b = 2 ms/um^2 via:  tau = (4b / (gamma^2 * gmax^2 * kappa))^(1/3)
+
+    Parameters
+    ----------
+    kappa : nested dict with structure
+            {waveform_name: {"80 mT/m": {"STE": k, "LTE": k},
+                             "200 mT/m": {"STE": k, "LTE": k}}}
+            Example (from Table 1 in paper)::
+
+                kappa = {
+                    "DIME":   {"80 mT/m": {"STE": 0.0295, "LTE": 0.0295},
+                               "200 mT/m": {"STE": 0.0119, "LTE": 0.0119}},
+                    "NOW-OE": {"80 mT/m": {"STE": 0.0482, "LTE": 0.1088},
+                               "200 mT/m": {"STE": 0.0319, "LTE": 0.0922}},
+                    "NOW-RM": {"80 mT/m": {"STE": 0.0482, "LTE": 0.0184},
+                               "200 mT/m": {"STE": 0.0319, "LTE": 0.0118}},
+                    "NOW-ET": {"80 mT/m": {"STE": 0.0521, "LTE": 0.0793},
+                               "200 mT/m": {"STE": 0.0427, "LTE": 0.0624}},
+                }
+
+    labels    : display names per waveform (default: keys of kappa)
+    save_path : if given, save figure at 600 dpi
+    ax        : existing Axes
+
+    Returns
+    -------
+    ax
+    """
+    waveforms = list(kappa.keys())
+    if labels is None:
+        labels = waveforms
+
+    _colors = {"DIME": "black", "NOW-OE": "#A9A9A9", "NOW-RM": "#4b91e2", "NOW-ET": "#8E1616"}
+    _markers = {"80 mT/m": "o", "200 mT/m": "s"}
+    gmax_by_system = {"80 mT/m": 80.0, "200 mT/m": 200.0}
+
+    # Convert kappa -> tau [ms]
+    tau = {}
+    for wf in waveforms:
+        tau[wf] = {}
+        for sys, gmax in gmax_by_system.items():
+            if sys not in kappa[wf]:
+                continue
+            tau[wf][sys] = {
+                enc: _kappa_to_tau_ms(kappa[wf][sys][enc], gmax)
+                for enc in ("STE", "LTE")
+            }
+
+    all_times = [tau[wf][sys][enc]
+                 for wf in waveforms for sys in tau[wf] for enc in ("STE", "LTE")]
+    tmax = np.ceil(max(all_times) / 10) * 10 + 5
+
+    created_ax = ax is None
+    if ax is None:
+        _, ax = plt.subplots(figsize=(6.8, 5.6))
+
+    for wf, label in zip(waveforms, labels):
+        col = _colors.get(wf, "black")
+        for sys in tau[wf]:
+            ax.scatter(tau[wf][sys]["STE"], tau[wf][sys]["LTE"],
+                       s=110, color=col, marker=_markers.get(sys, "o"),
+                       edgecolor="black", linewidth=0.8, zorder=3)
+
+    xline = np.linspace(0, tmax, 200)
+    ax.plot(xline, xline, "--", color="gray", linewidth=1.2, label="equal STE/LTE time", zorder=1)
+
+    ax.set_xlim(0, tmax)
+    ax.set_ylim(0, tmax)
+    ax.set_xlabel(r"$\tau_\mathrm{STE}$ [ms]")
+    ax.set_ylabel(r"$\tau_\mathrm{LTE}$ [ms]")
+    ax.set_aspect("equal", adjustable="box")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    wf_handles = [
+        Line2D([0], [0], marker="o", color="w",
+               markerfacecolor=_colors.get(wf, "black"),
+               markeredgecolor="black", markersize=8, label=lab)
+        for wf, lab in zip(waveforms, labels)
+    ]
+    sys_handles = [
+        Line2D([0], [0], marker=_markers[sys], color="black",
+               linestyle="None", markersize=8, label=sys)
+        for sys in gmax_by_system
+    ]
+
+    leg1 = ax.legend(handles=wf_handles, title="Waveform", loc="upper left",
+                     frameon=False, fontsize=12,
+                     title_fontproperties={"weight": "bold", "size": 13})
+    ax.add_artist(leg1)
+    ax.legend(handles=sys_handles, title="System", loc="center left",
+              frameon=False, fontsize=12,
+              title_fontproperties={"weight": "bold", "size": 13})
+
+    if save_path is not None:
+        ax.figure.savefig(save_path, dpi=600, bbox_inches="tight")
+    if created_ax:
+        plt.tight_layout()
+        plt.show()
+    return ax
