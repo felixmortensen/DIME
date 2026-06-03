@@ -36,7 +36,7 @@ DIME/
 │       ├── +optimize/          % DIME waveform optimization (fmincon, SAFE, multi-start)
 │       │   ├── optimize.m      % Main optimizer
 │       │   ├── options.m       % Optimizer configuration struct
-│       │   └── demo.m          % Demo for Prisma 3T and CIMA.X
+│       │   └── demo.m          % Demo for 80 and 200 mT/m gradient systems
 │       ├── +waveform/          % Trapezoidal pulse construction and tensor calculations
 │       │   ├── par2gwf.m       % 7 parameters -> gradient waveform + time vector
 │       │   ├── par2bval.m      % Closed-form b-value from parameters
