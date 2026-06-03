@@ -2,8 +2,13 @@ function demo(n)
 % function dime.optimize.demo
 %
 % Demonstrates the DIME optimizer for two scanner scenarios:
-%   1 - Prisma 3T  (gmax = 80 mT/m, smax = 200 T/m/s)
-%   2 - CIMA.X     (gmax = 200 mT/m, smax = 200 T/m/s)
+%   1 - 80 mT/m system  (gmax = 80 mT/m, smax = 200 T/m/s)
+%   2 - 200 mT/m system (gmax = 200 mT/m, smax = 200 T/m/s)
+%
+% Scanner-specific SAFE hardware models (hw) are not distributed with this
+% toolbox. Replace safe_example_hw_peripheral below with the hw struct for
+% your scanner (see safe_pns_prediction documentation). Set mode = 0 to run
+% without stimulation constraints.
 
 if nargin < 1
     n = [1 2];
@@ -18,21 +23,22 @@ for i = 1:numel(n)
 
     switch n(i)
         case 1
-            dur = 40; % ms
-            tp  = 8;
+            dur  = 40;   % ms
+            tp   = 8;
             gmax = 0.08; % T/m
             smax = 200;  % T/m/s
 
-            hw = safe_hw_prisma_xr_sh05;
+            % Replace with your scanner hw struct, e.g. safe_hw_<yourscanner>
+            hw = safe_example_hw_peripheral;
 
         case 2
-            dur = 28; % ms
-            tp  = 4;
+            dur  = 28;  % ms
+            tp   = 4;
             gmax = 0.2; % T/m
-            smax = 200;  % T/m/s
+            smax = 200; % T/m/s
 
-            hw(1) = safe_hw_cimaX_cardiac;
-            hw(2) = safe_hw_cimaX_peripheral;
+            % Replace with your scanner hw struct(s)
+            hw = safe_example_hw_peripheral;
 
     end
 

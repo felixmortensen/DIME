@@ -81,8 +81,9 @@ gmax = 0.08; % T/m
 smax = 200;  % T/m/s
 mode = 7;    % stimulation constraint mode (see table below)
 
-% Load SAFE hardware model (requires safe_pns_prediction on path)
-hw = safe_hw_prisma_xr_sh05;
+% Load SAFE hardware model for your scanner (requires safe_pns_prediction on path)
+% Replace with your scanner-specific hw struct, e.g. safe_hw_<yourscanner>
+hw = safe_example_hw_peripheral;
 
 % Optimize
 opt        = dime.optimize.options(gmax, smax, dur);
@@ -93,7 +94,7 @@ opt        = dime.optimize.options(gmax, smax, dur);
 dime.plot.gwfSetAndStim(gwf, rf, dt, hw)
 ```
 
-To run the built-in demo for two scanner scenarios (Prisma 3T and CIMA.X):
+To run the built-in demo for two scanner scenarios (80 and 200 mT/m):
 
 ```matlab
 dime.optimize.demo()
