@@ -79,87 +79,65 @@ def sphere_bessel_kernels(n: int) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# Diffusion spectra
+# Diffusion spectrum
 # ---------------------------------------------------------------------------
 
-def Dw_cylinder(
+def Dw_restricted(
     omega: float | np.ndarray,
     R: float,
     D0: float,
+    geometry: str = "cylinder",
     alpha: float = 0.0,
     n: int = 60,
 ) -> np.ndarray:
     """
-    Transverse frequency-dependent diffusivity for a cylinder (Eqs. C4–C9).
+    Frequency-dependent restricted diffusivity (Eq. C1).
 
-    D_perp(omega) = D0*alpha + D0*(1-alpha) * sum_k [ a_k*B_k * omega^2 / (a_k^2*D0^2 + omega^2) ]
+    D(omega) = D0*alpha + D0*(1-alpha) * sum_k [ a_k*B_k * omega^2 / (a_k^2*D0^2 + omega^2) ]
 
-    For a fully closed cylinder (no exchange) use alpha=0 (default), which
-    gives D_perp(0)=0 and D_perp(inf)=D0.  The full 3-D cylinder tensor is
-    diag(D_perp, D_perp, D0) — the z-axis contribution is handled separately
-    in signal_gpa_cylinder.
+    The geometry selects the Bessel roots and coefficient formula:
+
+    'cylinder' (Eqs. C4–C9):
+        roots mu_k : J'_1(mu_k) = 0
+        a_k = (mu_k/R)^2,  B_k = 2*(R/mu_k)^2 / (mu_k^2 - 1)
+        Gives the transverse spectrum D_perp.  The full cylinder tensor is
+        diag(D_perp, D_perp, D0); the D0 z-contribution is added in
+        signal_gpa_cylinder, not here.
+
+    'sphere' (Eq. C10, d=3):
+        roots z_k : (z^2-2)*sin(z) + 2*z*cos(z) = 0
+        a_k = (z_k/R)^2,  B_k = 2*(R/z_k)^2 / (z_k^2 - 2)
+        Gives the isotropic spectrum D_sph.  The full tensor is D_sph * I.
+        alpha is always 0 for a closed sphere.
 
     Parameters
     ----------
-    omega : angular frequency [rad/s]
-    R     : cylinder radius [m]
-    D0    : free diffusivity [m^2/s]
-    alpha : long-time fraction D_inf/D0 (default 0 for closed compartment)
-    n     : number of Lorentzian terms
+    omega    : angular frequency [rad/s]
+    R        : radius [m]
+    D0       : free diffusivity [m^2/s]
+    geometry : 'cylinder' or 'sphere'
+    alpha    : long-time diffusivity fraction D_inf/D0 (default 0)
+    n        : number of Lorentzian terms (series truncation, default 60)
 
     Returns
     -------
-    D : [len(omega)] diffusivity [m^2/s]
+    D : diffusivity [m^2/s], same shape as omega
     """
     omega = np.atleast_1d(np.asarray(omega, dtype=float))
-    mu = cylinder_bessel_kernels(n)
 
-    # Eq. C4: a_k = (mu_k/R)^2, B_k = 2*(R/mu_k)^2 / (mu_k^2 - 1)
-    a = (mu / R) ** 2
-    B = 2.0 * (R / mu) ** 2 / (mu ** 2 - 1.0)
+    if geometry == "cylinder":
+        zk = cylinder_bessel_kernels(n)
+        B  = 2.0 * (R / zk) ** 2 / (zk ** 2 - 1.0)
+    elif geometry == "sphere":
+        zk = sphere_bessel_kernels(n)
+        B  = 2.0 * (R / zk) ** 2 / (zk ** 2 - 2.0)
+    else:
+        raise ValueError(f"geometry must be 'cylinder' or 'sphere', got {geometry!r}")
+
+    a = (zk / R) ** 2
 
     D = np.array([
         D0 * alpha + D0 * (1.0 - alpha) * np.sum(a * B * w ** 2 / (a ** 2 * D0 ** 2 + w ** 2))
-        for w in omega
-    ])
-    return D
-
-
-def Dw_sphere(
-    omega: float | np.ndarray,
-    R: float,
-    D0: float,
-    n: int = 60,
-) -> np.ndarray:
-    """
-    Isotropic frequency-dependent diffusivity for a sphere (Eq. C1 with d=3).
-
-    D_sph(omega) = D0 * sum_k [ a_k*B_k * omega^2 / (a_k^2*D0^2 + omega^2) ]
-
-    with roots z_k from sphere_bessel_kernels and B_k = 2*(R/z_k)^2 / (z_k^2 - 2).
-
-    D_sph(0) = 0, D_sph(inf) = D0.  The full tensor is D_sph * I  (Eq. C10).
-
-    Parameters
-    ----------
-    omega : angular frequency [rad/s]
-    R     : sphere radius [m]
-    D0    : free diffusivity [m^2/s]
-    n     : number of Lorentzian terms
-
-    Returns
-    -------
-    D : [len(omega)] diffusivity [m^2/s]
-    """
-    omega = np.atleast_1d(np.asarray(omega, dtype=float))
-    zk = sphere_bessel_kernels(n)
-
-    # Eq. C2 with d=3: a_k = (z_k/R)^2, B_k = 2*(R/z_k)^2 / (z_k^2 - 2)
-    a = (zk / R) ** 2
-    B = 2.0 * (R / zk) ** 2 / (zk ** 2 - 2.0)
-
-    D = np.array([
-        D0 * np.sum(a * B * w ** 2 / (a ** 2 * D0 ** 2 + w ** 2))
         for w in omega
     ])
     return D
@@ -253,7 +231,7 @@ def signal_gpa_cylinder_rotations(
     betas   = np.zeros((len(radii), n_rot), dtype=float)
 
     for i, R in enumerate(radii):
-        D_perp = Dw_cylinder(omega, R, D0, alpha=0.0, n=n)
+        D_perp = Dw_restricted(omega, R, D0, geometry="cylinder", n=n)
         beta = np.trapz(
             (P_xx + P_yy) * D_perp[None, :] + P_zz * D0,
             x=f_ref, axis=1,
@@ -357,7 +335,7 @@ def signal_gpa_sphere_rotations(
     betas   = np.zeros((len(radii), n_rot), dtype=float)
 
     for i, R in enumerate(radii):
-        D_sph = Dw_sphere(omega, R, D0, n=n)
+        D_sph = Dw_restricted(omega, R, D0, geometry="sphere", n=n)
         beta = np.trapz(
             (P_xx + P_yy + P_zz) * D_sph[None, :],
             x=f_ref, axis=1,
