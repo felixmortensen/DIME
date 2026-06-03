@@ -87,7 +87,7 @@ def Dw_cylinder(
     R: float,
     D0: float,
     alpha: float = 0.0,
-    n: int = 100,
+    n: int = 60,
 ) -> np.ndarray:
     """
     Transverse frequency-dependent diffusivity for a cylinder (Eqs. C4–C9).
@@ -129,7 +129,7 @@ def Dw_sphere(
     omega: float | np.ndarray,
     R: float,
     D0: float,
-    n: int = 100,
+    n: int = 60,
 ) -> np.ndarray:
     """
     Isotropic frequency-dependent diffusivity for a sphere (Eq. C1 with d=3).
@@ -175,7 +175,7 @@ def signal_gpa_cylinder(
     dt: float,
     R: float,
     D0: float,
-    n: int = 100,
+    n: int = 60,
     n_pad: int | None = None,
     gamma: float = GAMMA,
 ) -> tuple[float, float]:
@@ -215,7 +215,7 @@ def signal_gpa_cylinder_rotations(
     dt: float,
     radii: np.ndarray,
     D0: float,
-    n: int = 100,
+    n: int = 60,
     n_pad: int | None = None,
     gamma: float = GAMMA,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -274,7 +274,7 @@ def signal_gpa_sphere(
     dt: float,
     R: float,
     D0: float,
-    n: int = 100,
+    n: int = 60,
     n_pad: int | None = None,
     gamma: float = GAMMA,
 ) -> tuple[float, float]:
@@ -319,7 +319,7 @@ def signal_gpa_sphere_rotations(
     dt: float,
     radii: np.ndarray,
     D0: float,
-    n: int = 100,
+    n: int = 60,
     n_pad: int | None = None,
     gamma: float = GAMMA,
 ) -> tuple[np.ndarray, np.ndarray]:
