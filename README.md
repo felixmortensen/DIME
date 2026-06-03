@@ -1,87 +1,177 @@
 # DIME — Double-Isotropic Matched Encoding
 
-Gradient waveform design for tensor-valued diffusion MRI under time-dependent diffusion.
-Companion code for: Mortensen et al., "Optimized gradient waveforms for tensor-valued
-diffusion MRI under time-dependent diffusion using DIME" (in submission).
+A MATLAB and Python toolbox for designing gradient waveforms for tensor-valued diffusion MRI under time-dependent diffusion.
 
-Public release. Intended for researchers in diffusion MRI.
+Repository based on the paper:
+
+[Optimized gradient waveforms for tensor-valued diffusion MRI under time-dependent diffusion using Double-Isotropic Matched Encoding (DIME)](https://doi.org/),
+
+by Felix Mortensen, Viktor Olsson, Athanasios Grigoriou, Samo Lasič, Malwina Molendowska, Ronnie Wirestam, and Filip Szczepankiewicz
+
+---
+
+## Overview
+
+Spherical b-tensor encoding (STE) enables rotationally invariant diffusion measurements, and STE/LTE comparisons are sensitive to microscopic diffusion anisotropy. Under time-dependent diffusion, however, this invariance can be compromised when restriction weighting is directionally uneven.
+
+**DIME** addresses this by designing gradient waveforms that are simultaneously isotropic in both diffusion weighting (b-value) and low-frequency restriction weighting (m-value), with an LTE matched to the STE in m/b. The design enforces:
+
+- **Double isotropy** — both the b-tensor B and the m-tensor M are spherical (B = bI, M = mI)
+- **Spectral matching** — STE and LTE share the same m/b ratio (Eq. 11), so they report the same apparent diffusivity under time-dependent diffusion
+- **Gradient balance** with concomitant-gradient compensation (K-nulling)
+- **Nerve stimulation compliance** — PNS and CNS via the SAFE model, ≤95% of hardware limit
+
+The LTE is constructed by projecting the STE onto u = (−1,+1,+1)/√3 (Eq. 15), which preserves isotropy of both B and M and maximises encoding efficiency.
+
+![Waveforms](waveforms.png)
+
+---
 
 ## Repository structure
 
 ```
 DIME/
-├── CLAUDE.md
-├── README.md
 ├── matlab/
 │   └── +dime/
-│       ├── +optimize/     ← DIME & NOW waveform optimization (fmincon, SAFE, multi-start)
-│       ├── +waveform/     ← trapezoidal pulse construction, LTE projection, b/m tensor calc
-│       ├── +histosim/     ← signal computation from Histo-µSim trajectories
-│       ├── +analysis/     ← MD fitting, CV, ΔMD across rotations
-│       └── +plot/         ← figures
+│       ├── +optimize/          % DIME waveform optimization (fmincon, SAFE, multi-start)
+│       │   ├── optimize.m      % Main optimizer
+│       │   ├── options.m       % Optimizer configuration struct
+│       │   └── demo.m          % Demo for Prisma 3T and CIMA.X
+│       ├── +waveform/          % Trapezoidal pulse construction and tensor calculations
+│       │   ├── par2gwf.m       % 7 parameters -> gradient waveform + time vector
+│       │   ├── par2bval.m      % Closed-form b-value from parameters
+│       │   ├── par2mval.m      % Closed-form m-value from parameters
+│       │   ├── ste2lte.m       % Project STE -> LTE (Eq. 15)
+│       │   └── ana2num.m       % Rasterize piecewise-linear waveform
+│       ├── +histosim/          % Signal computation from Histo-uSim trajectories
+│       │   ├── gwf2sig.m       % Noise-free MRI signal from particle trajectories
+│       │   └── loadtraj.m      % Load binary .traj trajectory files
+│       ├── +analysis/          % Signal fitting and diffusivity analysis
+│       │   └── fitSignals.m    % Cumulant fits and per-rotation MD from Histo-uSim data
+│       └── +plot/              % Figures
+│           └── gwfSetAndStim.m % Waveform + nerve stimulation figure
 ├── python/
 │   └── dime/
-│       ├── simulate.py    ← Disimpy Monte Carlo (cylinders & spheres)
-│       ├── analytical.py  ← analytical signal computation (Appendix C, Lorentzian spectra)
-│       ├── fitting.py     ← powder-averaged MD fitting (Eq. 18), signal analysis
-│       └── plot.py        ← figures
+│       ├── simulate.py         % Disimpy Monte Carlo (cylinders & spheres)
+│       ├── analytical.py       % Analytical diffusion spectra via GPA (Appendix C)
+│       ├── fitting.py          % Powder-averaged MD fitting (Eq. 18)
+│       ├── waveform.py         % q(t) calculations and MATLAB file loading
+│       └── plot.py             % CV and MD-vs-radius figures
 ├── data/
-│   └── raw/              ← read-only: Histo-µSim trajectories, GFO rotation matrices
-└── figures/              ← saved output figures
+│   └── raw/                    % Read-only reference data (not distributed)
+├── figures/                    % Saved output figures
+└── requirements.txt            % Python dependencies
 ```
 
-## Languages and packages
+---
 
-**MATLAB (R2025b)**
-- Package namespace: `+dime/` with subpackages `+optimize`, `+simulate`,
-  `+plot`, `+waveform`, `+safe`
-- Optimization via `fmincon` (SQP), multi-start scheme
-- SAFE model via `safe_pns_prediction` (Szczepankiewicz, GitHub)
-- NOW toolbox for reference waveforms
+## Quick start
 
-**Python**
-- Package: `dime/` with modules `simulate.py`, `fitting.py`, `waveform.py`, `plot.py`
-- Monte Carlo via Disimpy
-- Analytical signal computation (cylinders/spheres, Appendix C)
-- Signal fitting: powder-averaged MD via Eq. (18), scipy curve_fit
+### MATLAB — design a DIME waveform
 
-## Key physics and notation
+Add the `matlab/` folder to the MATLAB path, then:
+
+```matlab
+addpath(genpath('matlab'))
+
+% Scanner parameters
+dur  = 40;   % ms — encoding duration per lobe
+tp   = 8;    % ms — pause around refocusing pulse
+gmax = 0.08; % T/m
+smax = 200;  % T/m/s
+mode = 7;    % stimulation constraint mode (see table below)
+
+% Load SAFE hardware model (requires safe_pns_prediction on path)
+hw = safe_hw_prisma_xr_sh05;
+
+% Optimize
+opt        = dime.optimize.options(gmax, smax, dur);
+[gwf, t]   = dime.optimize.optimize(dur, tp, gmax, smax, mode, hw, opt);
+
+% Rasterize to 46 µs grid and plot
+[gwf, rf, dt] = dime.waveform.ana2num(gwf, t/1000, 46e-6);
+dime.plot.gwfSetAndStim(gwf, rf, dt, hw)
+```
+
+To run the built-in demo for two scanner scenarios (Prisma 3T and CIMA.X):
+
+```matlab
+dime.optimize.demo()
+```
+
+### Python — Monte Carlo simulation and MD fitting
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+```python
+import numpy as np
+from dime.simulate import simulate
+from dime.fitting import fit_md_from_npz
+from dime.plot import load_md_from_npz_files, plot_md_vs_radius
+
+# Run Disimpy Monte Carlo for a folder of waveform .mat files
+radii = np.linspace(3, 90, 30) * 1e-6  # m
+simulate(folder='path/to/waveforms', geometry='cylinder', radii=radii, n_walkers=int(1e6))
+
+# Fit powder-averaged MD from the simulated signals
+fit_md_from_npz('path/to/signals.npz')
+```
+
+---
+
+## Stimulation constraint modes
+
+The `mode` argument controls which SAFE stimulation constraints are applied during optimization.
+
+| Mode | Constraint applied |
+|------|--------------------|
+| 0    | No stimulation constraints |
+| 1    | Max PNS per axis (STE) |
+| 2    | Global max PNS (STE) |
+| 3    | L2-norm of PNS (STE) |
+| 4    | Per-axis + L2-norm (STE) |
+| 5    | LTE along y only |
+| 6    | Max PNS for STE and worst-case LTE |
+| 7    | Max PNS for STE + LTE + L2-norm of STE **(recommended)** |
+
+---
+
+## Key notation
 
 | Symbol | Meaning | Units |
 |--------|---------|-------|
-| `g(t)` | Gradient waveform vector | mT/m |
-| `q(t)` | Dephasing vector (integral of g) | rad/m |
-| `B` | b-tensor (3×3) | ms/µm² |
-| `M` | m-tensor / restriction-weighting tensor (3×3) | µs⁻² |
-| `b` | trace(B), scalar b-value | ms/µm² |
-| `m` | trace(M), scalar restriction weighting | µs⁻² |
-| `kappa` | Waveform encoding efficiency (dimensionless) | — |
-| `tau` | Diffusion encoding duration | ms |
-| `gmax` | Maximum gradient amplitude | mT/m |
-| `smax` | Maximum slew rate | T/m/s |
-| `tp` | Pause time around refocusing pulse | ms |
-| `dt` | Waveform time resolution (rasterization) | µs (46 µs standard) |
+| g(t)   | Gradient waveform | mT/m |
+| q(t)   | Dephasing vector | rad/m |
+| B      | b-tensor (3×3) | ms/µm² |
+| M      | m-tensor (3×3) | µs⁻² |
+| b      | trace(B) | ms/µm² |
+| m      | trace(M) | µs⁻² |
+| tau    | Encoding duration | ms |
+| gmax   | Max gradient amplitude | mT/m |
+| smax   | Max slew rate | T/m/s |
+| tp     | Pause around refocusing pulse | ms |
+| dt     | Waveform raster time | µs (46 µs standard) |
 
-STE = spherical b-tensor encoding, LTE = linear b-tensor encoding.
-DIME enforces B = bI and M = mI (both tensors isotropic) and equal m/b across STE/LTE.
-LTE is constructed by projecting STE onto u = (±1,±1,±1)/√3 (Eq. 15 in paper).
+---
 
-## Constraints and safety
+## Dependencies
 
-- b-tensor isotropy tolerance: |bxy − bz| / 2b < 0.01
-- m-tensor isotropy tolerance: |mxy − mz| / 2m < 0.01
-- Nerve stimulation (PNS and CNS) via SAFE model: must stay below 95% of limit
-- Stimulation assessed on STE norm and all three physical axes for LTE
+**MATLAB (R2025b)**
+- Optimization Toolbox — `fmincon`, `GlobalSearch`, `MultiStart`
+- [safe_pns_prediction](https://github.com/filip-szczepankiewicz/safe_pns_prediction) — nerve stimulation prediction via SAFE model
+- [fwf_seq_tools](https://github.com/filip-szczepankiewicz/fwf_seq_tools) — used in `dime.plot.gwfSetAndStim`
 
-## Coding conventions
+**Python**
+- See `requirements.txt` (`numpy`, `scipy`, `matplotlib`, `disimpy`)
 
-- MATLAB: one class or coherent function group per file, inside the `+dime` package namespace
-- Python: module-level functions grouped by role; no globals; type hints on public functions
-- Units must be explicit in variable names or docstrings — never mix ms and s, or mT/m and T/m
-- Do not modify anything in `data/raw/` (read-only reference data)
+---
 
-## What NOT to do
+## Citation
 
-- Do not reorganize the directory structure without confirming with the owner first
-- Do not change unit conventions silently — flag any ambiguity
-- Do not present untested numerics as validated results
+If you use this toolbox in your work, please cite:
+
+> Mortensen et al., "Optimized gradient waveforms for tensor-valued diffusion MRI under time-dependent diffusion using DIME", *in submission*.
