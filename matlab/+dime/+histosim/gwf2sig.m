@@ -1,6 +1,5 @@
 function mri_sig = gwf2sig(Nsteps, Tdur, traj, gwf, gamma)
 % function mri_sig = dime.histosim.gwf2sig(Nsteps, Tdur, traj, gwf, gamma)
-% By Filip Szczepankiewicz, Lund University
 % Inspired by code from Athanasios Grigoriou.
 %
 % Compute the noise-free MRI signal from a set of particle trajectories and

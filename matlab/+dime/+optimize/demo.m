@@ -1,6 +1,5 @@
 function demo(n)
 % function dime.optimize.demo
-% By Filip Szczepankiewicz, Lund University
 %
 % Demonstrates the DIME optimizer for two scanner scenarios:
 %   1 - Prisma 3T  (gmax = 80 mT/m, smax = 200 T/m/s)

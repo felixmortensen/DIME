@@ -1,6 +1,5 @@
 function b = par2bval(amp, tru, trd, ftt, tp, gamma)
 % function b = dime.waveform.par2bval(amp, tru, trd, ftt, tp, gamma)
-% By Filip Szczepankiewicz, Lund University
 
 if nargin < 6
     gamma = 1;

@@ -1,6 +1,5 @@
 function [gwf_out, rf_out, dt_out, t_out] = ana2num(gwf, t, dt)
 % function [gwf_out, rf_out, dt_out, t_out] = dime.waveform.ana2num(gwf, t, dt)
-% By Filip Szczepankiewicz, Lund University
 %
 % Convert analytic (piecewise linear) control points in time to a numerical
 % variant that can be evaluated wrt nerve stimulation and loaded onto the

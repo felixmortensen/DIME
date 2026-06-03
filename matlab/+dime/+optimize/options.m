@@ -1,6 +1,5 @@
 function opt = options(gmax, smax, dur)
 % function opt = dime.optimize.options(gmax, smax, dur)
-% By Filip Szczepankiewicz, Lund University
 
 % Get some reasonable ramp time limits
 minRamp = gmax/smax*1e3; % ms

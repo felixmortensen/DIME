@@ -1,6 +1,5 @@
 function xyz = loadtraj(Nsteps, filename)
 % function xyz = dime.histosim.loadtraj(Nsteps, filename)
-% By Filip Szczepankiewicz, Lund University
 %
 % Load a binary Histo-uSim trajectory file into a [Nsteps x 3 x Nparticles]
 % array.  Positions are converted from mm to m.

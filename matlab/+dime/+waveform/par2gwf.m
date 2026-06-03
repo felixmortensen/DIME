@@ -1,6 +1,5 @@
 function [gwf, t] = par2gwf(x, dur, tp)
 % function [gwf, t] = dime.waveform.par2gwf(x, dur, tp)
-% By Filip Szczepankiewicz, Lund University
 %
 % Convert optimization parameters (control points) to gradient levels and
 % corresponding times.
