@@ -1,9 +1,7 @@
 """
 Validation: analytical GPA signals vs pre-computed Disimpy Monte Carlo signals.
 
-Requires external data that lives outside the repository:
-  data/waveforms/{Cima,Prisma}/b1000/GWFL_*.mat
-  data/Simulations/{Cima,Prisma}/Disimpy/{Cylinders,Spheres}/GWFL_*_sig.npz
+Requires external data that lives outside the repository
 
 All tests are skipped automatically when the data folder is not present.
 """
