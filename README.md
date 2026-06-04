@@ -33,36 +33,30 @@ Spherical b-tensor encoding (STE) enables rotationally invariant diffusion measu
 
 ```
 DIME/
-├── matlab/
-│   └── +dime/
-│       ├── +optimize/          % DIME waveform optimization (fmincon, SAFE, multi-start)
-│       │   ├── optimize.m      % Main optimizer
-│       │   ├── options.m       % Optimizer configuration struct
-│       │   └── demo.m          % Demo for 80 and 200 mT/m gradient systems
-│       ├── +waveform/          % Trapezoidal pulse construction and tensor calculations
-│       │   ├── par2gwf.m       % 7 parameters -> gradient waveform + time vector
-│       │   ├── par2bval.m      % Closed-form b-value from parameters
-│       │   ├── par2mval.m      % Closed-form m-value from parameters
-│       │   ├── ste2lte.m       % Project STE -> LTE (Eq. 15)
-│       │   └── ana2num.m       % Rasterize piecewise-linear waveform
-│       ├── +histosim/          % Signal computation from Histo-uSim trajectories
-│       │   ├── gwf2sig.m       % Noise-free MRI signal from particle trajectories
-│       │   └── loadtraj.m      % Load binary .traj trajectory files
-│       ├── +analysis/          % Signal fitting and diffusivity analysis
-│       │   └── fitSignals.m    % Cumulant fits and per-rotation MD from Histo-uSim data
-│       └── +plot/              % Figures
-│           └── gwfSetAndStim.m % Waveform + nerve stimulation figure
-├── python/
-│   └── dime/
-│       ├── simulate.py         % Disimpy Monte Carlo (cylinders & spheres)
-│       ├── analytical.py       % Analytical diffusion spectra via GPA (Appendix C)
-│       ├── fitting.py          % Powder-averaged MD fitting (Eq. 18)
-│       ├── waveform.py         % q(t) calculations and MATLAB file loading
-│       └── plot.py             % CV and MD-vs-radius figures
-├── data/
-│   └── raw/                    % Read-only reference data (not distributed)
-├── figures/                    % Saved output figures
-└── requirements.txt            % Python dependencies
+├── matlab/+dime/
+│   ├── +optimize/      optimize.m, options.m, demo.m
+│   ├── +waveform/      par2gwf, par2bval, par2mval, ste2lte, ste2lte_matched,
+│   │                   ana2num, gwf2simfmt, gwf2gwfl
+│   ├── +histosim/      gwf2sig.m, loadtraj.m
+│   ├── +analysis/      fitSignals.m
+│   └── +plot/          gwfSetAndStim, spiderplot, pns_cns, bm_glyphs,
+│                       wf_spectra, con_and_q, fit_histosim
+├── python/dime/
+│   ├── waveform.py     load_mat, to_qt, to_q_spectrum
+│   ├── simulate.py     simulate() — Disimpy Monte Carlo
+│   ├── analytical.py   Dw_restricted, GPA signals for cylinders and spheres
+│   ├── fitting.py      fit_md, fit_md_from_npz
+│   └── plot.py         CV vs radius, MD vs radius, efficiency figures
+├── waveforms/          Pre-optimized GWFL .mat files
+│   ├── 80/2D|3D/       GWFL_{DIME,NOWOE,NOWRM,NOWET}_80_{2d,3d}.mat
+│   └── 200/2D|3D/      GWFL_{DIME,NOWOE,NOWRM,NOWET}_200_{2d,3d}.mat
+├── rotmatrix/          gfod2_050.mat, gfod2_100.mat
+├── demos/
+│   ├── matlab/         demo_dime_waveform.m
+│   └── python/         demo_dime_simulation.py
+├── tests/              Python unit tests and Disimpy validation tests
+├── data/raw/           Read-only reference data (not distributed)
+└── requirements.txt    Python dependencies
 ```
 
 ---
@@ -71,7 +65,14 @@ DIME/
 
 ### MATLAB — design a DIME waveform
 
-Add the `matlab/` folder to the MATLAB path, then:
+Add the `matlab/` folder to the MATLAB path, then run the demo:
+
+```matlab
+addpath(genpath('matlab'))
+dime.optimize.demo()
+```
+
+Or step through the full pipeline manually:
 
 ```matlab
 addpath(genpath('matlab'))
@@ -84,25 +85,18 @@ smax = 200;  % T/m/s
 mode = 7;    % stimulation constraint mode (see table below)
 
 % Load SAFE hardware model for your scanner (requires safe_pns_prediction on path)
-% Replace with your scanner-specific hw struct, e.g. safe_hw_<yourscanner>
-hw = safe_example_hw_peripheral;
+hw = safe_example_hw_peripheral;  % replace with your scanner hw struct
 
-% Optimize
-opt        = dime.optimize.options(gmax, smax, dur);
-[gwf, t]   = dime.optimize.optimize(dur, tp, gmax, smax, mode, hw, opt);
-
-% Rasterize to 46 µs grid and plot
+% Optimize, rasterise, and plot
+opt           = dime.optimize.options(gmax, smax, dur);
+[gwf, t]      = dime.optimize.optimize(dur, tp, gmax, smax, mode, hw, opt);
 [gwf, rf, dt] = dime.waveform.ana2num(gwf, t/1000, 46e-6);
 dime.plot.gwfSetAndStim(gwf, rf, dt, hw)
 ```
 
-To run the built-in demo for two scanner scenarios (80 and 200 mT/m):
+For a complete pipeline from optimization through to a simulation-ready GWFL file (including LTE construction and rotation), see `demos/matlab/demo_dime_waveform.m`.
 
-```matlab
-dime.optimize.demo()
-```
-
-### Python — Monte Carlo simulation and MD fitting
+### Python — simulation and analysis
 
 Install dependencies:
 
@@ -110,19 +104,32 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+Pre-optimized waveforms for 80 mT/m and 200 mT/m systems are provided in `waveforms/`. To run Monte Carlo simulations with Disimpy (requires a CUDA GPU):
+
 ```python
-import numpy as np
 from dime.simulate import simulate
-from dime.fitting import fit_md_from_npz
-from dime.plot import load_md_from_npz_files, plot_md_vs_radius
+import numpy as np
 
-# Run Disimpy Monte Carlo for a folder of waveform .mat files
 radii = np.linspace(3, 90, 30) * 1e-6  # m
-simulate(folder='path/to/waveforms', geometry='cylinder', radii=radii, n_walkers=int(1e6))
-
-# Fit powder-averaged MD from the simulated signals
-fit_md_from_npz('path/to/signals.npz')
+simulate(folder='waveforms/80/3D', geometry='cylinder', radii=radii, n_walkers=int(1e6))
 ```
+
+To compute the equivalent GPA analytical signal:
+
+```python
+from dime.waveform import load_mat
+from dime.analytical import signal_gpa_cylinder_rotations
+import numpy as np
+
+wf   = load_mat('waveforms/80/3D/GWFL_DIME_80_3d.mat')
+gwfl = np.asarray(wf.GWF[:, :, :100])   # first 100 rotations (STE)
+rf   = np.ones(gwfl.shape[0])
+radii = np.array([5, 10, 20]) * 1e-6
+
+signals, betas = signal_gpa_cylinder_rotations(gwfl, rf, float(wf.dt), radii, D0=2e-9)
+```
+
+For a complete end-to-end example including both simulation and analytical comparison with a figure, see `demos/python/demo_dime_simulation.py`.
 
 ---
 
@@ -170,5 +177,6 @@ The `mode` argument controls which SAFE stimulation constraints are applied duri
 
 **Python**
 - See `requirements.txt` (`numpy`, `scipy`, `matplotlib`, `disimpy`)
+- Disimpy requires a CUDA-capable GPU
 
 ---
