@@ -10,6 +10,12 @@ by Felix Mortensen, Viktor Olsson, Athanasios Grigoriou, Samo Lasič, Malwina Mo
 
 ---
 
+# Citation
+
+If you use this toolbox in your work, please cite:
+
+> Mortensen et al., "Optimized gradient waveforms for tensor-valued diffusion MRI under time-dependent diffusion using DIME".
+
 ## Overview
 
 Spherical b-tensor encoding (STE) enables rotationally invariant diffusion measurements, and STE/LTE comparisons are sensitive to microscopic diffusion anisotropy. Under time-dependent diffusion, however, this invariance can be compromised when restriction weighting is directionally uneven.
@@ -17,13 +23,9 @@ Spherical b-tensor encoding (STE) enables rotationally invariant diffusion measu
 **DIME** addresses this by designing gradient waveforms that are simultaneously isotropic in both diffusion weighting (b-value) and low-frequency restriction weighting (m-value), with an LTE matched to the STE in m/b. The design enforces:
 
 - **Double isotropy** — both the b-tensor B and the m-tensor M are spherical (B = bI, M = mI)
-- **Spectral matching** — STE and LTE share the same m/b ratio (Eq. 11), so they report the same apparent diffusivity under time-dependent diffusion
+- **Spectral matching** — STE and LTE share the same m/b (Eq. 11), so they report the same apparent diffusivity under time-dependent diffusion
 - **Gradient balance** with concomitant-gradient compensation (K-nulling)
-- **Nerve stimulation compliance** — PNS and CNS via the SAFE model, ≤95% of hardware limit
-
-The LTE is constructed by projecting the STE onto u = (−1,+1,+1)/√3 (Eq. 15), which preserves isotropy of both B and M and maximises encoding efficiency.
-
-![Waveforms](waveforms.png)
+- **Nerve stimulation compliance** — PNS and CNS via the SAFE model
 
 ---
 
@@ -163,16 +165,10 @@ The `mode` argument controls which SAFE stimulation constraints are applied duri
 
 **MATLAB (R2025b)**
 - Optimization Toolbox — `fmincon`, `GlobalSearch`, `MultiStart`
-- [safe_pns_prediction](https://github.com/filip-szczepankiewicz/safe_pns_prediction) — nerve stimulation prediction via SAFE model
-- [fwf_seq_tools](https://github.com/filip-szczepankiewicz/fwf_seq_tools) — used in `dime.plot.gwfSetAndStim`
+- [safe_pns_prediction](https://github.com/filip-szczepankiewicz/safe_pns_prediction)
+- [fwf_seq_tools](https://github.com/filip-szczepankiewicz/fwf_seq_tools)
 
 **Python**
 - See `requirements.txt` (`numpy`, `scipy`, `matplotlib`, `disimpy`)
 
 ---
-
-## Citation
-
-If you use this toolbox in your work, please cite:
-
-> Mortensen et al., "Optimized gradient waveforms for tensor-valued diffusion MRI under time-dependent diffusion using DIME", *in submission*.
