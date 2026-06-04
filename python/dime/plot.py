@@ -396,7 +396,7 @@ def plot_qspectra(
 
     # Normalise each component by its integral
     for c in range(n_comp):
-        A = np.trapz(spectra[:, c], f)
+        A = np.trapezoid(spectra[:, c], f)
         if A > 0:
             spectra[:, c] /= A
     spectra *= ps_scale

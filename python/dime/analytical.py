@@ -72,7 +72,9 @@ def sphere_bessel_kernels(n: int) -> np.ndarray:
 
     roots = np.zeros(n, dtype=float)
     for k in range(n):
-        a = k * np.pi + 1e-10
+        # f has a spurious near-root at z=0 (triple root); start bracket at 0.5
+        # to avoid brentq landing there on the first interval.
+        a = max(k * np.pi + 1e-10, 0.5)
         b = (k + 1) * np.pi - 1e-10
         roots[k] = brentq(f, a, b, xtol=1e-14)
     return roots
@@ -181,9 +183,9 @@ def signal_gpa_cylinder(
     """
     p, f = to_q_spectrum(gwf, rf, dt, n_pad=n_pad, gamma=gamma)
     omega = 2.0 * np.pi * f
-    D_perp = Dw_cylinder(omega, R, D0, alpha=0.0, n=n)
+    D_perp = Dw_restricted(omega, R, D0, geometry="cylinder", n=n)
 
-    beta = np.trapz((p[:, 0].real + p[:, 1].real) * D_perp + p[:, 2].real * D0, x=f)
+    beta = np.trapezoid((p[:, 0].real + p[:, 1].real) * D_perp + p[:, 2].real * D0, x=f)
     return float(np.exp(-beta)), float(beta)
 
 
@@ -232,7 +234,7 @@ def signal_gpa_cylinder_rotations(
 
     for i, R in enumerate(radii):
         D_perp = Dw_restricted(omega, R, D0, geometry="cylinder", n=n)
-        beta = np.trapz(
+        beta = np.trapezoid(
             (P_xx + P_yy) * D_perp[None, :] + P_zz * D0,
             x=f_ref, axis=1,
         )
@@ -284,10 +286,10 @@ def signal_gpa_sphere(
     """
     p, f = to_q_spectrum(gwf, rf, dt, n_pad=n_pad, gamma=gamma)
     omega = 2.0 * np.pi * f
-    D_sph = Dw_sphere(omega, R, D0, n=n)
+    D_sph = Dw_restricted(omega, R, D0, geometry="sphere", n=n)
 
     p_tot = p[:, 0].real + p[:, 1].real + p[:, 2].real
-    beta  = np.trapz(p_tot * D_sph, x=f)
+    beta  = np.trapezoid(p_tot * D_sph, x=f)
     return float(np.exp(-beta)), float(beta)
 
 
@@ -336,7 +338,7 @@ def signal_gpa_sphere_rotations(
 
     for i, R in enumerate(radii):
         D_sph = Dw_restricted(omega, R, D0, geometry="sphere", n=n)
-        beta = np.trapz(
+        beta = np.trapezoid(
             (P_xx + P_yy + P_zz) * D_sph[None, :],
             x=f_ref, axis=1,
         )
