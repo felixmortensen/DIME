@@ -1,7 +1,9 @@
 """
 Validation: analytical GPA signals vs pre-computed Disimpy Monte Carlo signals.
 
-Requires external data that lives outside the repository
+Requires external data that lives outside the repository:
+  data/waveforms/{200mTm,80mTm}/b1000/GWFL_*.mat
+  data/Simulations/{200mTm,80mTm}/Disimpy/{Cylinders,Spheres}/GWFL_*_sig.npz
 
 All tests are skipped automatically when the data folder is not present.
 """
@@ -81,35 +83,35 @@ def _load_npz_sph(path: Path):
 # Parametrised test cases
 # ---------------------------------------------------------------------------
 
-_CIMA_WF   = _WF_ROOT  / "Cima"   / "b1000"
-_PRISMA_WF = _WF_ROOT  / "Prisma" / "b1000"
-_CIMA_CYL  = _SIM_ROOT / "Cima"   / "Disimpy" / "Cylinders"
-_CIMA_SPH  = _SIM_ROOT / "Cima"   / "Disimpy" / "Spheres"
-_PRIS_CYL  = _SIM_ROOT / "Prisma" / "Disimpy" / "Cylinders"
-_PRIS_SPH  = _SIM_ROOT / "Prisma" / "Disimpy" / "Spheres"
+_WF_200   = _WF_ROOT  / "Cima"   / "b1000"
+_WF_80    = _WF_ROOT  / "Prisma" / "b1000"
+_CYL_200  = _SIM_ROOT / "Cima"   / "Disimpy" / "Cylinders"
+_SPH_200  = _SIM_ROOT / "Cima"   / "Disimpy" / "Spheres"
+_CYL_80   = _SIM_ROOT / "Prisma" / "Disimpy" / "Cylinders"
+_SPH_80   = _SIM_ROOT / "Prisma" / "Disimpy" / "Spheres"
 
 # Each entry: (id, geometry, waveform_mat, signal_npz, max_err_tol)
 _CASES = [
-    # Cima cylinders
-    ("cima_cyl_DIME",    "cyl", _CIMA_WF/"GWFL_ii_ste_cima_b1000_v5.mat",            _CIMA_CYL/"GWFL_ii_ste_cima_b1000_v5_sig.npz",            0.005),
-    ("cima_cyl_NOW-EOP", "cyl", _CIMA_WF/"GWFL_now_ste_cima_3d_efficient_b1000.mat", _CIMA_CYL/"GWFL_now_ste_cima_3d_efficient_b1000_sig.npz",  0.005),
-    ("cima_cyl_NOW-MTM", "cyl", _CIMA_WF/"GWFL_now_ste_cima_3d_matched_b1000.mat",   _CIMA_CYL/"GWFL_now_ste_cima_3d_matched_b1000_sig.npz",    0.005),
-    ("cima_cyl_NOW-ETM", "cyl", _CIMA_WF/"GWFL_now_ste_cima_3d_timed_b1000.mat",     _CIMA_CYL/"GWFL_now_ste_cima_3d_timed_b1000_sig.npz",      0.005),
-    # Cima spheres
-    ("cima_sph_DIME",    "sph", _CIMA_WF/"GWFL_ii_ste_cima_b1000_v5.mat",            _CIMA_SPH/"GWFL_ii_ste_cima_3d_v5_sig.npz",                0.005),
-    ("cima_sph_NOW-EOP", "sph", _CIMA_WF/"GWFL_now_ste_cima_3d_efficient_b1000.mat", _CIMA_SPH/"GWFL_now_ste_cima_3d_efficient_sig.npz",         0.005),
-    ("cima_sph_NOW-MTM", "sph", _CIMA_WF/"GWFL_now_ste_cima_3d_matched_b1000.mat",   _CIMA_SPH/"GWFL_now_ste_cima_3d_matched_sig.npz",           0.005),
-    ("cima_sph_NOW-ETM", "sph", _CIMA_WF/"GWFL_now_ste_cima_3d_timed_b1000.mat",     _CIMA_SPH/"GWFL_now_ste_cima_3d_timed_sig.npz",             0.005),
-    # Prisma cylinders
-    ("prisma_cyl_DIME",    "cyl", _PRISMA_WF/"GWFL_ii_ste_prisma_3d_b1000.mat",              _PRIS_CYL/"GWFL_ii_ste_prisma_3d_b1000_sig.npz",             0.005),
-    ("prisma_cyl_NOW-EOP", "cyl", _PRISMA_WF/"GWFL_now_ste_prisma_3d_efficient_b1000.mat",   _PRIS_CYL/"GWFL_now_ste_prisma_3d_efficient_b1000_sig.npz",  0.005),
-    ("prisma_cyl_NOW-MTM", "cyl", _PRISMA_WF/"GWFL_now_ste_prisma_3d_matched_b1000.mat",     _PRIS_CYL/"GWFL_now_ste_prisma_3d_matched_b1000_sig.npz",    0.005),
-    ("prisma_cyl_NOW-ETM", "cyl", _PRISMA_WF/"GWFL_now_ste_prisma_3d_timed_b1000.mat",       _PRIS_CYL/"GWFL_now_ste_prisma_3d_timed_b1000_sig.npz",      0.005),
-    # Prisma spheres
-    ("prisma_sph_DIME",    "sph", _PRISMA_WF/"GWFL_ii_ste_prisma_3d_b1000.mat",              _PRIS_SPH/"GWFL_ii_ste_prisma_3d_sig.npz",                   0.005),
-    ("prisma_sph_NOW-EOP", "sph", _PRISMA_WF/"GWFL_now_ste_prisma_3d_efficient_b1000.mat",   _PRIS_SPH/"GWFL_now_ste_prisma_3d_efficient_sig.npz",         0.005),
-    ("prisma_sph_NOW-MTM", "sph", _PRISMA_WF/"GWFL_now_ste_prisma_3d_matched_b1000.mat",     _PRIS_SPH/"GWFL_now_ste_prisma_3d_matched_sig.npz",           0.005),
-    ("prisma_sph_NOW-ETM", "sph", _PRISMA_WF/"GWFL_now_ste_prisma_3d_timed_b1000.mat",       _PRIS_SPH/"GWFL_now_ste_prisma_3d_timed_sig.npz",             0.005),
+    # 200 mT/m — cylinders
+    ("200mTm_cyl_DIME",    "cyl", _WF_200/"GWFL_ii_ste_cima_b1000_v5.mat",            _CYL_200/"GWFL_ii_ste_cima_b1000_v5_sig.npz",            0.005),
+    ("200mTm_cyl_NOW-EOP", "cyl", _WF_200/"GWFL_now_ste_cima_3d_efficient_b1000.mat", _CYL_200/"GWFL_now_ste_cima_3d_efficient_b1000_sig.npz",  0.005),
+    ("200mTm_cyl_NOW-MTM", "cyl", _WF_200/"GWFL_now_ste_cima_3d_matched_b1000.mat",   _CYL_200/"GWFL_now_ste_cima_3d_matched_b1000_sig.npz",    0.005),
+    ("200mTm_cyl_NOW-ETM", "cyl", _WF_200/"GWFL_now_ste_cima_3d_timed_b1000.mat",     _CYL_200/"GWFL_now_ste_cima_3d_timed_b1000_sig.npz",      0.005),
+    # 200 mT/m — spheres
+    ("200mTm_sph_DIME",    "sph", _WF_200/"GWFL_ii_ste_cima_b1000_v5.mat",            _SPH_200/"GWFL_ii_ste_cima_3d_v5_sig.npz",                0.005),
+    ("200mTm_sph_NOW-EOP", "sph", _WF_200/"GWFL_now_ste_cima_3d_efficient_b1000.mat", _SPH_200/"GWFL_now_ste_cima_3d_efficient_sig.npz",         0.005),
+    ("200mTm_sph_NOW-MTM", "sph", _WF_200/"GWFL_now_ste_cima_3d_matched_b1000.mat",   _SPH_200/"GWFL_now_ste_cima_3d_matched_sig.npz",           0.005),
+    ("200mTm_sph_NOW-ETM", "sph", _WF_200/"GWFL_now_ste_cima_3d_timed_b1000.mat",     _SPH_200/"GWFL_now_ste_cima_3d_timed_sig.npz",             0.005),
+    # 80 mT/m — cylinders
+    ("80mTm_cyl_DIME",    "cyl", _WF_80/"GWFL_ii_ste_prisma_3d_b1000.mat",              _CYL_80/"GWFL_ii_ste_prisma_3d_b1000_sig.npz",             0.005),
+    ("80mTm_cyl_NOW-EOP", "cyl", _WF_80/"GWFL_now_ste_prisma_3d_efficient_b1000.mat",   _CYL_80/"GWFL_now_ste_prisma_3d_efficient_b1000_sig.npz",  0.005),
+    ("80mTm_cyl_NOW-MTM", "cyl", _WF_80/"GWFL_now_ste_prisma_3d_matched_b1000.mat",     _CYL_80/"GWFL_now_ste_prisma_3d_matched_b1000_sig.npz",    0.005),
+    ("80mTm_cyl_NOW-ETM", "cyl", _WF_80/"GWFL_now_ste_prisma_3d_timed_b1000.mat",       _CYL_80/"GWFL_now_ste_prisma_3d_timed_b1000_sig.npz",      0.005),
+    # 80 mT/m — spheres
+    ("80mTm_sph_DIME",    "sph", _WF_80/"GWFL_ii_ste_prisma_3d_b1000.mat",              _SPH_80/"GWFL_ii_ste_prisma_3d_sig.npz",                   0.005),
+    ("80mTm_sph_NOW-EOP", "sph", _WF_80/"GWFL_now_ste_prisma_3d_efficient_b1000.mat",   _SPH_80/"GWFL_now_ste_prisma_3d_efficient_sig.npz",         0.005),
+    ("80mTm_sph_NOW-MTM", "sph", _WF_80/"GWFL_now_ste_prisma_3d_matched_b1000.mat",     _SPH_80/"GWFL_now_ste_prisma_3d_matched_sig.npz",           0.005),
+    ("80mTm_sph_NOW-ETM", "sph", _WF_80/"GWFL_now_ste_prisma_3d_timed_b1000.mat",       _SPH_80/"GWFL_now_ste_prisma_3d_timed_sig.npz",             0.005),
 ]
 
 
