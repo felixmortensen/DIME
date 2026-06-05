@@ -123,7 +123,7 @@ import numpy as np
 
 wf   = load_mat('waveforms/80/3D/GWFL_DIME_80_3d.mat')
 gwfl = np.asarray(wf.GWF[:, :, :100])   # first 100 rotations (STE)
-rf   = np.ones(gwfl.shape[0])
+rf   = np.ones(wf.rf[:100])
 radii = np.array([5, 10, 20]) * 1e-6
 
 signals, betas = signal_gpa_cylinder_rotations(gwfl, rf, float(wf.dt), radii, D0=2e-9)
@@ -146,7 +146,7 @@ The `mode` argument controls which SAFE stimulation constraints are applied duri
 | 4    | Per-axis + L2-norm (STE) |
 | 5    | LTE along y only |
 | 6    | Max PNS for STE and worst-case LTE |
-| 7    | Max PNS for STE + LTE + L2-norm of STE **(recommended)** |
+| 7    | Max PNS for STE + LTE + L2-norm of STE |
 
 ---
 
@@ -154,17 +154,17 @@ The `mode` argument controls which SAFE stimulation constraints are applied duri
 
 | Symbol | Meaning | Units |
 |--------|---------|-------|
-| g(t)   | Gradient waveform | mT/m |
+| g(t)   | Gradient waveform | T/m |
 | q(t)   | Dephasing vector | rad/m |
-| B      | b-tensor (3×3) | ms/µm² |
-| M      | m-tensor (3×3) | µs⁻² |
+| B      | b-tensor (3×3) | s/m² |
+| M      | m-tensor (3×3) | m⁻²s⁻¹ |
 | b      | trace(B) | ms/µm² |
-| m      | trace(M) | µs⁻² |
+| m      | trace(M) | m⁻²s⁻¹ |
 | tau    | Encoding duration | ms |
-| gmax   | Max gradient amplitude | mT/m |
+| gmax   | Max gradient amplitude | T/m |
 | smax   | Max slew rate | T/m/s |
 | tp     | Pause around refocusing pulse | ms |
-| dt     | Waveform raster time | µs (46 µs standard) |
+| dt     | Waveform raster time | ms |
 
 ---
 
