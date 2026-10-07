@@ -14,7 +14,7 @@ by Felix Mortensen, Viktor Olsson, Athanasios Grigoriou, Samo Lasič, Malwina Mo
 
 If you use this toolbox in your work, please cite:
 
-> Mortensen et al., "Optimized gradient waveforms for tensor-valued diffusion MRI under time-dependent diffusion using DIME".
+> F. Mortensen, V. Olsson, A. Grigoriou, et al., “ Optimized Gradient Waveforms for Tensor-Valued Diffusion MRI Under Time-Dependent Diffusion Using Double-Isotropic Matched Encoding (DIME),” Magnetic Resonance in Medicine (2026): 1–15, https://doi.org/10.1002/mrm.70602.
 
 ## Overview
 
